@@ -1,11 +1,12 @@
 name: Generate LinkedIn Posts
 
 on:
+workflow_dispatch:
+    # Allow manual triggering
   schedule:
     # Run once a day at 8:00 AM UTC
     - cron: '0 8 * * *'
-  workflow_dispatch:
-    # Allow manual triggering
+  
 
 jobs:
   generate-posts:
