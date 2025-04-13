@@ -31,4 +31,16 @@ An automated system that generates professional LinkedIn post drafts based on ne
 
 ## License
 
-MIT
+Copyright © 2025 Nitij Taneja
+
+All rights reserved.
+
+This repository and its contents (including but not limited to code, workflows, configurations, and documentation) are proprietary and confidential. 
+
+You may not copy, reproduce, distribute, publish, modify, or use any part of this project for any purpose without the express written consent of the repository owner.
+
+Cloning, forking, or redistributing this repository or any of its files is strictly prohibited.
+
+Unauthorized use may result in legal consequences.
+
+For permissions or inquiries, contact: tanejanitij4002@gmail.com
