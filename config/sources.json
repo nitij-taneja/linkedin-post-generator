@@ -1,0 +1,36 @@
+{
+  "email": {
+    "server": "imap.example.com",
+    "port": 993,
+    "use_ssl": true,
+    "folder": "INBOX",
+    "search_criteria": "FROM \"ai-news@domain.com\" UNSEEN",
+    "max_emails": 5
+  },
+  "research_apis": {
+    "arxiv": {
+      "enabled": true,
+      "categories": ["cs.AI", "cs.CL", "cs.LG", "stat.ML"],
+      "max_results": 10,
+      "sort_by": "submittedDate",
+      "sort_order": "descending"
+    },
+    "huggingface": {
+      "enabled": true,
+      "topics": ["nlp", "computer-vision", "reinforcement-learning", "generative-ai"],
+      "max_results": 10
+    },
+    "papers_with_code": {
+      "enabled": true,
+      "topics": ["RAG", "generative-ai", "data-science", "large-language-models"],
+      "max_results": 10
+    }
+  },
+  "post_preferences": {
+    "topics": ["ai", "datascience", "generative-ai", "rag"],
+    "posts_per_day": 3,
+    "include_emojis": true,
+    "include_hashtags": true,
+    "max_hashtags": 10
+  }
+}

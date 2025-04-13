@@ -1,0 +1,15 @@
+# Ignore local user documentation
+USER_GUIDE.md
+INSTALLATION.md
+
+
+
+
+
+# Python cache and env stuff (if any)
+__pycache__/
+*.pyc
+.env
+
+# VS Code settings (optional)
+.vscode/

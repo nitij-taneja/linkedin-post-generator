@@ -1,0 +1,44 @@
+name: Generate LinkedIn Posts
+
+on:
+  schedule:
+    # Run once a day at 8:00 AM UTC
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+    # Allow manual triggering
+
+jobs:
+  generate-posts:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Generate LinkedIn posts
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_ENDPOINT: ${{ secrets.GROQ_ENDPOINT || 'https://api.groq.com/v1/chat/completions' }}
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python src/main.py
+      
+      - name: Commit and push if there are changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add posts/
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Add LinkedIn post drafts for $(date +'%Y-%m-%d')" && git push)
