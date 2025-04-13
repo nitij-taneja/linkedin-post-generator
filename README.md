@@ -27,9 +27,7 @@ An automated system that generates professional LinkedIn post drafts based on ne
 4. **Scheduling**
    - GitHub Actions workflow
 
-## Setup and Usage
 
-See the [Installation Guide](INSTALLATION.md) for detailed setup instructions.
 
 ## License
 
