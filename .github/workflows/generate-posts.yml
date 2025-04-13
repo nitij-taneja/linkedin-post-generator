@@ -40,7 +40,10 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add posts/
+          mkdir -p posts && git add posts/
+          git diff --quiet && git diff --staged --quiet || git commit -m "Add LinkedIn posts for $(date +'%Y-%m-%d')"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:main
+
           git diff --quiet && git diff --staged --quiet || git commit -m "Add LinkedIn posts for $(date +'%Y-%m-%d')"
           git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:main
 
