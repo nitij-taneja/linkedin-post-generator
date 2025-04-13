@@ -35,8 +35,11 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
       - name: Commit and push if there are changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add posts/
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Add LinkedIn post drafts for $(date +'%Y-%m-%d')" && git push)
+          git diff --quiet && git diff --staged --quiet || git commit -m "Add LinkedIn posts for $(date +'%Y-%m-%d')"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:main
