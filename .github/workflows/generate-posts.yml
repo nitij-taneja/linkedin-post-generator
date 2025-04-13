@@ -1,4 +1,4 @@
-name: Generate LinkedIn Posts
+name: Generate LinkedIn Posts 1
 
 on:
   workflow_dispatch:   # ✅ Manual run
