@@ -23,6 +23,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Send startup message to Telegram
+        run: python src/test_bot_message.py
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
       - name: Generate LinkedIn posts
         run: python src/main.py
         env:
@@ -41,7 +47,3 @@ jobs:
           mkdir -p posts && git add posts/
           git diff --quiet && git diff --staged --quiet || git commit -m "Add LinkedIn posts for $(date +'%Y-%m-%d')"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:main
-
-          git diff --quiet && git diff --staged --quiet || git commit -m "Add LinkedIn posts for $(date +'%Y-%m-%d')"
-          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:main
-
