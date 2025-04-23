@@ -1,0 +1,5 @@
+      - name: Send startup message to Telegram
+        run: python src/test_bot_message.py
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
