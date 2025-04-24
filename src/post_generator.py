@@ -41,21 +41,20 @@ class PostGenerator:
             logger.error(f"Failed to load config: {e}")
             return {}
 
-    def generate_posts(self, email_data, research_data):
-        posts_per_day = self.post_preferences.get('posts_per_day', 3)
-        content_items = self._prepare_content(email_data, research_data)
-        random.shuffle(content_items)
-        selected_items = content_items[:posts_per_day]
-
+    def generate_posts(self, email_data, research_data, max_posts=3, emails_only=False):
         posts = []
-        for item in selected_items:
+        content_items = self._prepare_content(email_data, research_data, emails_only=emails_only)
+        random.shuffle(content_items)
+        for item in content_items:
             post = self._generate_post(item)
             if post:
                 posts.append(post)
+            if len(posts) >= max_posts:
+                break
         logger.info(f"Generated {len(posts)} LinkedIn posts")
         return posts
 
-    def _prepare_content(self, email_data, research_data):
+    def _prepare_content(self, email_data, research_data, emails_only=False):
         content_items = []
         for email in email_data:
             content_items.append({
@@ -65,17 +64,18 @@ class PostGenerator:
                 'source': email.get('from', ''),
                 'date': email.get('date', '')
             })
-        for source, items in research_data.items():
-            for item in items:
-                content_items.append({
-                    'type': 'research',
-                    'title': item.get('title', ''),
-                    'content': item.get('summary', ''),
-                    'authors': item.get('authors', []),
-                    'link': item.get('link', ''),
-                    'source': source,
-                    'date': item.get('published', '')
-                })
+        if not emails_only:
+            for source, items in research_data.items():
+                for item in items:
+                    content_items.append({
+                        'type': 'research',
+                        'title': item.get('title', ''),
+                        'content': item.get('summary', ''),
+                        'authors': item.get('authors', []),
+                        'link': item.get('link', ''),
+                        'source': source,
+                        'date': item.get('published', '')
+                    })
         return content_items
 
     def _generate_post(self, content_item):
@@ -146,7 +146,7 @@ Instructions:
 - Mention Avi and Akshay as curators
 - Add 3+ relevant hashtags
 - Use 2-3 emojis for attention
-- End with "Follow Avi and Akshay for more insights"
+- End with \"Follow Avi and Akshay for more insights\"
 - Max 1300 characters
 """
 
