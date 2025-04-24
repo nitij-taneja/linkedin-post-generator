@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-Main Module for LinkedIn Post Generator
-Adds post file cleanup (older than 20 days) and analytics JSON recording.
-"""
-
 import os
 import sys
 import json
@@ -11,17 +5,14 @@ import logging
 import argparse
 from datetime import datetime, timedelta
 
-# Logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Add root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import modules
 from src.email_fetcher import EmailFetcher
 from src.research_fetcher import ResearchFetcher
 from src.post_generator import PostGenerator
@@ -40,40 +31,44 @@ def cleanup_old_posts(directory, days_old=20):
                     deleted += 1
     logger.info(f"Cleaned up {deleted} old post files from {directory}")
 
+def strip_markdown(text):
+    return text.replace('**', '').replace('__', '')
+
 def save_posts_to_github(posts, output_dir):
     os.makedirs(output_dir, exist_ok=True)
     analytics_dir = os.path.join(output_dir, '../analytics')
     os.makedirs(analytics_dir, exist_ok=True)
-
     saved_files = []
+
     for i, post in enumerate(posts):
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         md_file = f"post_{timestamp}_{i+1}.md"
         md_path = os.path.join(output_dir, md_file)
 
         try:
+            clean_content = strip_markdown(post['content'])
+
             with open(md_path, 'w') as f:
                 f.write(f"# LinkedIn Post Draft {i+1}\n\n")
                 f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
                 f.write(f"Source: {post['source_type']} - {post['source_title']}\n\n")
                 f.write("## Content\n\n")
-                f.write(post['content'])
+                f.write(clean_content)
                 f.write("\n\n")
                 if post['source_link']:
                     f.write(f"Original source: {post['source_link']}\n")
 
-            # Save analytics JSON
             analytics = {
                 'timestamp': datetime.now().isoformat(),
                 'source_type': post['source_type'],
                 'source_title': post['source_title'],
                 'source_link': post.get('source_link', ''),
                 'hashtags': post.get('hashtags', []),
-                'content_length': len(post['content']),
+                'content_length': len(clean_content),
                 'mentions': ['Avi Chawla', 'Akshay Pachaar'] if 'avi' in post['source_title'].lower() else [],
                 'formatting': {
                     'emojis': True,
-                    'bullets': '-' in post['content']
+                    'bullets': '-' in clean_content
                 }
             }
             json_path = os.path.join(analytics_dir, f"analytics_{timestamp}_{i+1}.json")
@@ -125,7 +120,10 @@ def main():
                 logger.warning("Email credentials not set")
 
         research_data = research_fetcher.fetch_all_research()
+
+        # Generate only 1 post per run
         posts = post_generator.generate_posts(email_data, research_data)
+        posts = posts[:1]
 
         if not posts:
             logger.warning("No posts generated")
