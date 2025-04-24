@@ -1,8 +1,8 @@
 name: Generate LinkedIn Posts
 
 on:
-  workflow_dispatch:   # ✅ Manual trigger
-  schedule:            # ✅ Scheduled runs at 10AM, 3PM, 7PM, 9PM UTC
+  workflow_dispatch:
+  schedule:
     - cron: '0 10 * * *'
     - cron: '0 15 * * *'
     - cron: '0 19 * * *'
@@ -49,4 +49,4 @@ jobs:
           git config --global user.name "GitHub Action"
           mkdir -p posts && git add posts/
           git diff --quiet && git diff --staged --quiet || git commit -m "Add LinkedIn posts for $(date +'%Y-%m-%d')"
-          git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:main
+          git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:Main
