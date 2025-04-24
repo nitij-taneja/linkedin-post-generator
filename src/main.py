@@ -88,6 +88,7 @@ def main():
     parser.add_argument('--output-dir', type=str, default='posts')
     parser.add_argument('--skip-email', action='store_true')
     parser.add_argument('--skip-telegram', action='store_true')
+    parser.add_argument('--emails-only', action='store_true')  # ✅ NEW
     args = parser.parse_args()
 
     config_path = args.config or os.path.join(os.path.dirname(__file__), '../config/sources.json')
@@ -119,9 +120,13 @@ def main():
             else:
                 logger.warning("Email credentials not set")
 
-        research_data = research_fetcher.fetch_all_research()
+        research_data = {}
+        if not args.emails_only:
+            research_data = research_fetcher.fetch_all_research()
+        else:
+            logger.info("Skipping research sources — generating email-only posts")
 
-        # Generate only 1 post per run
+        # Only 1 post per run
         posts = post_generator.generate_posts(email_data, research_data)
         posts = posts[:1]
 
@@ -140,6 +145,7 @@ def main():
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=True)
         return 1
+
 
 if __name__ == '__main__':
     sys.exit(main())
