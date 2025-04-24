@@ -1,0 +1,5 @@
+- name: 🔍 Test Email Fetcher Only
+  run: python src/email_fetcher.py
+  env:
+    EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+    EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
