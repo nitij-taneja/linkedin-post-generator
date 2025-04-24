@@ -1,3 +1,6 @@
+
+
+
 #!/usr/bin/env python3
 """
 Email Fetcher Module for LinkedIn Post Generator
@@ -54,11 +57,12 @@ class EmailFetcher:
         mail = self.connect(username, password)
         folder = self.email_config.get('folder', 'INBOX')
         max_emails = self.email_config.get('max_emails', 5)
-        search_criteria = '(OR FROM "avi@dailydoseofds.com" SEEN UNSEEN)'
+        search_criteria = 'TEXT "avi@dailydoseofds.com"'
 
         try:
             mail.select(folder)
             status, data = mail.search(None, search_criteria)
+            logger.info(f"Search result: status={status}, ids={data[0].split()}")
             if status != 'OK':
                 logger.error(f"Search failed: {status}")
                 return []
@@ -75,6 +79,7 @@ class EmailFetcher:
                 raw_email = data[0][1]
                 email_message = email.message_from_bytes(raw_email)
                 email_data = self._process_email(email_message)
+                logger.info(f"Fetched: Subject={email_data['subject']} From={email_data['from']}")
                 if email_data:
                     emails.append(email_data)
 
