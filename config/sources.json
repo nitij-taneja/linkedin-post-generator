@@ -4,7 +4,7 @@
     "port": 993,
     "use_ssl": true,
     "folder": "INBOX",
-    "search_criteria": "FROM \"avi@dailydoseofds.com\" UNSEEN",
+    "search_criteria": "FROM \"avi@dailydoseofds.com\"",
     "max_emails": 5
   },
   "research_apis": {
