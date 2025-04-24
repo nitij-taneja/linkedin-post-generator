@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
 Post Generator Module for LinkedIn Post Generator
-
-This module handles generating LinkedIn posts using the Groq API
-based on content from emails and research APIs.
+Now includes personalized prompt logic for Daily Dose (Avi & Akshay) and improved formatting.
 """
 
 import json
@@ -21,21 +19,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class PostGenerator:
-    """Class to generate LinkedIn posts using Groq API."""
-
     def __init__(self, config_path=None):
         self.config_path = config_path or os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            'config',
-            'sources.json'
+            'config', 'sources.json'
         )
         self.config = self._load_config()
         self.post_preferences = self.config.get('post_preferences', {})
 
-        # Groq API configuration
+        # Groq API
         self.api_key = os.environ.get('GROQ_API_KEY')
         self.api_endpoint = os.environ.get('GROQ_ENDPOINT', 'https://api.groq.com/openai/v1/chat/completions')
-
         if not self.api_key:
             logger.warning("GROQ_API_KEY environment variable not set")
 
@@ -49,8 +43,6 @@ class PostGenerator:
 
     def generate_posts(self, email_data, research_data):
         posts_per_day = self.post_preferences.get('posts_per_day', 3)
-        topics = self.post_preferences.get('topics', ['ai', 'datascience'])
-
         content_items = self._prepare_content(email_data, research_data)
         random.shuffle(content_items)
         selected_items = content_items[:posts_per_day]
@@ -60,13 +52,11 @@ class PostGenerator:
             post = self._generate_post(item)
             if post:
                 posts.append(post)
-
         logger.info(f"Generated {len(posts)} LinkedIn posts")
         return posts
 
     def _prepare_content(self, email_data, research_data):
         content_items = []
-
         for email in email_data:
             content_items.append({
                 'type': 'email',
@@ -75,7 +65,6 @@ class PostGenerator:
                 'source': email.get('from', ''),
                 'date': email.get('date', '')
             })
-
         for source, items in research_data.items():
             for item in items:
                 content_items.append({
@@ -87,7 +76,6 @@ class PostGenerator:
                     'source': source,
                     'date': item.get('published', '')
                 })
-
         return content_items
 
     def _generate_post(self, content_item):
@@ -109,10 +97,8 @@ class PostGenerator:
                     {
                         'role': 'system',
                         'content': (
-                            "You are a professional LinkedIn content strategist who crafts concise, engaging, "
-                            "and thought-leading posts on AI, data science, and cutting-edge research. "
-                            "You write like a domain expert with clarity, confidence, and purpose. "
-                            "Your goal is to make technical content accessible, relevant, and share-worthy."
+                            "You are a professional LinkedIn content creator. "
+                            "You write high-impact, concise posts on AI and data science, especially research or newsletter summaries."
                         )
                     },
                     {
@@ -125,7 +111,6 @@ class PostGenerator:
             }
 
             response = requests.post(self.api_endpoint, headers=headers, json=data, timeout=120)
-
             if response.status_code == 200:
                 result = response.json()
                 post_content = result['choices'][0]['message']['content']
@@ -139,82 +124,58 @@ class PostGenerator:
             else:
                 logger.error(f"Groq API error: {response.status_code} - {response.text}")
                 return None
-
         except Exception as e:
             logger.error(f"Error generating post: {e}")
             return None
 
-    def _create_prompt(self, content_item):
+    def _create_prompt(self, item):
         include_emojis = self.post_preferences.get('include_emojis', True)
         include_hashtags = self.post_preferences.get('include_hashtags', True)
         max_hashtags = self.post_preferences.get('max_hashtags', 10)
 
-        if content_item['type'] == 'email':
+        if item['type'] == 'email' and 'dailydoseofds.com' in item.get('source', '').lower():
             return f"""
-Create a concise, insightful, and engaging LinkedIn post based on the following newsletter:
+You're writing a post based on a newsletter from Daily Dose of Data Science by Avi Chawla and Akshay Pachaar.
 
-📰 TITLE: {content_item['title']}
-📩 CONTENT: {content_item['content'][:2000]}
-✉️ SOURCE: {content_item['source']}
+TITLE: {item['title']}
+CONTENT: {item['content'][:1800]}
 
-Guidelines:
-- Start with a bold, emoji-driven attention hook
-- Extract 2–3 valuable insights from the content
-- Format them with bullets or short paragraphs
-- Add a "Why this matters" perspective
-- End with a CTA or reflection
-- Credit the original newsletter author/source
+Instructions:
+- Extract the 2 best ideas or facts
+- Format clearly using line breaks or bullets
+- Mention Avi and Akshay as curators
+- Add 3+ relevant hashtags
+- Use 2-3 emojis for attention
+- End with "Follow Avi and Akshay for more insights"
 - Max 1300 characters
-- {"Add emojis and up to " + str(max_hashtags) + " relevant hashtags" if include_emojis else "No emojis"}
 """
 
-        else:  # research
-            authors = ', '.join(content_item.get('authors', [])[:3])
-            if len(content_item.get('authors', [])) > 3:
-                authors += ' et al.'
-
+        elif item['type'] == 'research':
+            authors = ', '.join(item.get('authors', [])[:3]) + (' et al.' if len(item.get('authors', [])) > 3 else '')
             return f"""
-Create a compelling LinkedIn post that summarizes this new research in a way that sparks curiosity and adds value to an AI-savvy audience:
+Summarize this AI research for a LinkedIn audience:
 
-📘 TITLE: {content_item['title']}
-📄 SUMMARY: {content_item['content'][:2000]}
-👥 AUTHORS: {authors}
-🔗 LINK: {content_item.get('link', '')}
+TITLE: {item['title']}
+SUMMARY: {item['content'][:1800]}
+AUTHORS: {authors}
+SOURCE: {item['source']}
+LINK: {item.get('link', '')}
 
-Guidelines:
-- Start with a strong, emoji-infused headline
-- Highlight 3–5 key takeaways from the research
-- Explain the practical impact or future potential
-- Include a brief "Why this matters" section
-- End with a forward-looking or community-involving statement
+Highlight:
+- Key ideas
+- Impact and use cases
+- End with questions or future thoughts
+- Include emojis and up to {max_hashtags} hashtags
 - Max 1300 characters
-- {"Include emojis and up to " + str(max_hashtags) + " relevant hashtags" if include_emojis else "Do not use emojis"}
 """
+        else:
+            return f"""
+Write a brief, well-structured LinkedIn post:
 
-if __name__ == "__main__":
-    import sys
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from src.email_fetcher import EmailFetcher
-    from src.research_fetcher import ResearchFetcher
+TITLE: {item['title']}
+CONTENT: {item['content'][:1800]}
 
-    if not os.environ.get('GROQ_API_KEY'):
-        print("Please set the GROQ_API_KEY environment variable")
-        sys.exit(1)
-
-    email_fetcher = EmailFetcher()
-    research_fetcher = ResearchFetcher()
-
-    email_data = []  # You can replace with: email_fetcher.fetch_emails()
-    research_data = research_fetcher.fetch_all_research()
-
-    generator = PostGenerator()
-    posts = generator.generate_posts(email_data, research_data)
-
-    for i, post in enumerate(posts):
-        print(f"\n--- Post {i+1} ---")
-        print(f"Based on: {post['source_title']}")
-        print(f"Source: {post['source_type']}")
-        if post['source_link']:
-            print(f"Link: {post['source_link']}")
-        print("\nContent:")
-        print(post['content'])
+- Include intro, value points, and CTA
+- Use emojis and {max_hashtags} hashtags
+- Max 1300 characters
+"""
