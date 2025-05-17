@@ -1,10 +1,7 @@
-
-
-
 #!/usr/bin/env python3
 """
 Email Fetcher Module for LinkedIn Post Generator
-Handles fetching emails (seen + unseen) filtered for Avi Chawla's newsletter.
+Handles fetching emails (seen + unseen) filtered for Avi Chawla and Bhavishya Pandit's newsletters.
 """
 
 import imaplib
@@ -30,6 +27,8 @@ class EmailFetcher:
         )
         self.config = self._load_config()
         self.email_config = self.config.get('email', {})
+        self.used_emails_path = os.path.join(os.path.dirname(__file__), 'used_emails.json')
+        self.used_subjects = self._load_used_subjects()
 
     def _load_config(self):
         try:
@@ -38,6 +37,16 @@ class EmailFetcher:
         except Exception as e:
             logger.error(f"Failed to load config: {e}")
             return {}
+
+    def _load_used_subjects(self):
+        if os.path.exists(self.used_emails_path):
+            with open(self.used_emails_path, 'r') as f:
+                return set(json.load(f))
+        return set()
+
+    def _save_used_subjects(self):
+        with open(self.used_emails_path, 'w') as f:
+            json.dump(list(self.used_subjects), f, indent=2)
 
     def connect(self, username, password):
         server = self.email_config.get('server', 'imap.gmail.com')
@@ -56,8 +65,8 @@ class EmailFetcher:
     def fetch_emails(self, username, password):
         mail = self.connect(username, password)
         folder = self.email_config.get('folder', 'INBOX')
-        max_emails = self.email_config.get('max_emails', 5)
-        search_criteria = 'TEXT "avi@dailydoseofds.com"'
+        max_emails = self.email_config.get('max_emails', 10)
+        search_criteria = 'OR FROM "avi@dailydoseofds.com" FROM "bhavishyapandit9@substack.com"'
 
         try:
             mail.select(folder)
@@ -67,10 +76,13 @@ class EmailFetcher:
                 logger.error(f"Search failed: {status}")
                 return []
 
-            email_ids = data[0].split()[-max_emails:]
+            email_ids = data[0].split()[::-1]  # Reverse for latest first
             emails = []
 
             for e_id in email_ids:
+                if len(emails) >= max_emails:
+                    break
+
                 status, data = mail.fetch(e_id, '(RFC822)')
                 if status != 'OK':
                     logger.warning(f"Failed to fetch email ID {e_id}")
@@ -79,11 +91,14 @@ class EmailFetcher:
                 raw_email = data[0][1]
                 email_message = email.message_from_bytes(raw_email)
                 email_data = self._process_email(email_message)
-                logger.info(f"Fetched: Subject={email_data['subject']} From={email_data['from']}")
-                if email_data:
-                    emails.append(email_data)
 
-            logger.info(f"Fetched {len(emails)} emails")
+                if email_data and email_data['subject'] not in self.used_subjects:
+                    logger.info(f"Fetched: Subject={email_data['subject']} From={email_data['from']}")
+                    emails.append(email_data)
+                    self.used_subjects.add(email_data['subject'])
+
+            self._save_used_subjects()
+            logger.info(f"Fetched {len(emails)} new emails")
             return emails
 
         except Exception as e:
