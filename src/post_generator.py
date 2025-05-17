@@ -127,8 +127,7 @@ class PostGenerator:
             return None
 
     def _contains_image_references(self, content):
-        # Basic detection of image references in newsletter body
-        return bool(re.search(r'<img|\!\[.*?\]\(.*?\)', content))
+        return bool(re.search(r'<img|!\[.*?\]\(.*?\)', content))
 
     def _create_prompt(self, item):
         include_emojis = self.post_preferences.get('include_emojis', True)
@@ -178,23 +177,30 @@ Instructions:
 
         elif item['type'] == 'research':
             authors = ', '.join(item.get('authors', [])[:3]) + (' et al.' if len(item.get('authors', [])) > 3 else '')
-            return f"""
+            summary = item['content'][:2000]
+            prompt = f"""
 Summarize this research post for LinkedIn in a way that's engaging to an AI-curious audience.
 
 TITLE: {item['title']}
-SUMMARY: {item['content'][:2000]}
+SUMMARY: {summary}
 AUTHORS: {authors}
 LINK: {item.get('link', '')}
 
 Instructions:
 - Explain what this research does and why it matters
+- Extract mathematical or algorithmic insight, if any (e.g. equations, attention weights)
+- Describe intuition or pseudocode if space allows
 - Define key terms (e.g. VolovNet, LoRA, retrieval augmentation)
 - Include diagrams or flow explanation if relevant (describe it textually)
 - Link to the paper and tag the authors (if known)
 - End with a question or next-step insight
 - Keep <2000 characters, avoid markdown
-- Emojis & hashtags welcomed
-"""
+- Emojis & hashtags welcomed"""
+
+            if len(item['content']) < 500:
+                prompt += "\nNote: The summary is short. Enrich it by expanding on known methods, use-cases, or simplified pseudocode."
+
+            return prompt
 
         else:
             return f"""
@@ -208,3 +214,8 @@ BODY: {item['content'][:1800]}
 - Add 15 relevant hashtags
 - End with an invite for feedback or discussion
 - No markdown (*, **)"""
+
+    def convert_latex_to_mathjax(self, text):
+        text = re.sub(r'\$\$(.*?)\$\$', r'\\[\1\\]', text, flags=re.DOTALL)
+        text = re.sub(r'\$(.*?)\$', r'\\(\1\\)', text, flags=re.DOTALL)
+        return text
