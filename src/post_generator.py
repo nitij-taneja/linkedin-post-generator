@@ -10,6 +10,7 @@ import logging
 import requests
 from datetime import datetime
 import random
+import re
 
 logging.basicConfig(
     level=logging.INFO,
@@ -125,6 +126,10 @@ class PostGenerator:
             logger.error(f"Error generating post: {e}")
             return None
 
+    def _contains_image_references(self, content):
+        # Basic detection of image references in newsletter body
+        return bool(re.search(r'<img|\!\[.*?\]\(.*?\)', content))
+
     def _create_prompt(self, item):
         include_emojis = self.post_preferences.get('include_emojis', True)
         include_hashtags = self.post_preferences.get('include_hashtags', True)
@@ -138,6 +143,7 @@ class PostGenerator:
             source = item.get('source', '').lower()
             content_sample = item['content'][:2000]
             title = item['title']
+            has_images = self._contains_image_references(item['content'])
 
             if 'avi' in source and 'dailydoseofds' in source:
                 return f"""
@@ -150,10 +156,9 @@ Instructions:
 - Avoid repeating generic intros, vary tone across posts
 - Pull 2–3 technical insights and expand with analogies or implications
 - Highlight practical applications or pain points it addresses
+- {'Describe any diagram or image insight in text.' if has_images else ''}
 - Add emojis, hashtags, and link to {mention_avi} and {mention_akshay} using inline mentions
-- Max 2000 characters, avoid markdown (*, **)
-- If body is short, supplement with related examples or research findings
-"""
+- Max 2000 characters, avoid markdown (*, **)"""
 
             elif 'wtf in tech' in source or 'bhavishya' in source:
                 return f"""
@@ -166,10 +171,10 @@ Instructions:
 - Vary your opening lines: story, question, or bold claim
 - Pick 2–3 questions/solutions and explain their real-world relevance
 - Include a mini-lesson or definition for one key term or method
+- {'Summarize any attached image or diagram as text if found.' if has_images else ''}
 - Add emojis and 5+ hashtags
 - End with: "Credits to {mention_bhavishya} for curating this 👏"
-- Avoid markdown styling, make it LinkedIn-ready
-"""
+- Avoid markdown styling, make it LinkedIn-ready"""
 
         elif item['type'] == 'research':
             authors = ', '.join(item.get('authors', [])[:3]) + (' et al.' if len(item.get('authors', [])) > 3 else '')
@@ -202,5 +207,4 @@ BODY: {item['content'][:1800]}
 - Break down 2–3 main ideas
 - Add 15 relevant hashtags
 - End with an invite for feedback or discussion
-- No markdown (*, **)
-"""
+- No markdown (*, **)"""
