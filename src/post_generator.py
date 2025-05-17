@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Post Generator Module for LinkedIn Post Generator
-Now includes personalized prompt logic for Daily Dose (Avi & Akshay) and improved formatting.
+Enhanced with advanced prompting, diversity in tone, LLM-augmented context, and hyperlink support.
 """
 
 import json
@@ -11,7 +11,6 @@ import requests
 from datetime import datetime
 import random
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -27,7 +26,6 @@ class PostGenerator:
         self.config = self._load_config()
         self.post_preferences = self.config.get('post_preferences', {})
 
-        # Groq API
         self.api_key = os.environ.get('GROQ_API_KEY')
         self.api_endpoint = os.environ.get('GROQ_ENDPOINT', 'https://api.groq.com/openai/v1/chat/completions')
         if not self.api_key:
@@ -43,7 +41,7 @@ class PostGenerator:
 
     def generate_posts(self, email_data, research_data, max_posts=3, emails_only=False):
         posts = []
-        content_items = self._prepare_content(email_data, research_data, emails_only=emails_only)
+        content_items = self._prepare_content(email_data, research_data, emails_only)
         random.shuffle(content_items)
         for item in content_items:
             post = self._generate_post(item)
@@ -97,8 +95,7 @@ class PostGenerator:
                     {
                         'role': 'system',
                         'content': (
-                            "You are a professional LinkedIn content creator. "
-                            "You write high-impact, concise posts on AI and data science, especially research or newsletter summaries."
+                            "You are a LinkedIn content strategist. You create engaging, educational, and fresh posts with technical precision and human relatability."
                         )
                     },
                     {
@@ -106,8 +103,8 @@ class PostGenerator:
                         'content': prompt
                     }
                 ],
-                'temperature': 0.7,
-                'max_tokens': 1024
+                'temperature': 0.75,
+                'max_tokens': 1300
             }
 
             response = requests.post(self.api_endpoint, headers=headers, json=data, timeout=120)
@@ -133,49 +130,77 @@ class PostGenerator:
         include_hashtags = self.post_preferences.get('include_hashtags', True)
         max_hashtags = self.post_preferences.get('max_hashtags', 10)
 
-        if item['type'] == 'email' and 'dailydoseofds.com' in item.get('source', '').lower():
-            return f"""
-You're writing a post based on a newsletter from Daily Dose of Data Science by Avi Chawla and Akshay Pachaar.
+        mention_avi = "Avi Chawla (https://www.linkedin.com/in/avi-chawla/)"
+        mention_akshay = "Akshay Pachaar (https://www.linkedin.com/in/akshay-pachaar/)"
+        mention_bhavishya = "Bhavishya Pandit (https://www.linkedin.com/in/bhavishyapandit/)"
 
-TITLE: {item['title']}
-CONTENT: {item['content'][:1800]}
+        if item['type'] == 'email':
+            source = item.get('source', '').lower()
+            content_sample = item['content'][:2000]
+            title = item['title']
+
+            if 'avi' in source and 'dailydoseofds' in source:
+                return f"""
+You're writing a concise but thoughtful LinkedIn post based on a technical newsletter.
+
+TITLE: {title}
+CONTENT SNIPPET: {content_sample}
 
 Instructions:
-- Extract the 2 best ideas or facts
-- Format clearly using line breaks or bullets
-- Mention Avi and Akshay as curators
-- Add 3+ relevant hashtags
-- Use 2-3 emojis for attention
-- End with \"Follow Avi and Akshay for more insights\"
-- Max 1300 characters
+- Avoid repeating generic intros, vary tone across posts
+- Pull 2–3 technical insights and expand with analogies or implications
+- Highlight practical applications or pain points it addresses
+- Add emojis, hashtags, and link to {mention_avi} and {mention_akshay} using inline mentions
+- Max 2000 characters, avoid markdown (*, **)
+- If body is short, supplement with related examples or research findings
+"""
+
+            elif 'wtf in tech' in source or 'bhavishya' in source:
+                return f"""
+Draft an educational and snappy post based on this newsletter by {mention_bhavishya}.
+
+TITLE: {title}
+EXCERPT: {content_sample}
+
+Instructions:
+- Vary your opening lines: story, question, or bold claim
+- Pick 2–3 questions/solutions and explain their real-world relevance
+- Include a mini-lesson or definition for one key term or method
+- Add emojis and 5+ hashtags
+- End with: "Credits to {mention_bhavishya} for curating this 👏"
+- Avoid markdown styling, make it LinkedIn-ready
 """
 
         elif item['type'] == 'research':
             authors = ', '.join(item.get('authors', [])[:3]) + (' et al.' if len(item.get('authors', [])) > 3 else '')
             return f"""
-Summarize this AI research for a LinkedIn audience:
+Summarize this research post for LinkedIn in a way that's engaging to an AI-curious audience.
 
 TITLE: {item['title']}
-SUMMARY: {item['content'][:1800]}
+SUMMARY: {item['content'][:2000]}
 AUTHORS: {authors}
-SOURCE: {item['source']}
 LINK: {item.get('link', '')}
 
-Highlight:
-- Key ideas
-- Impact and use cases
-- End with questions or future thoughts
-- Include emojis and up to {max_hashtags} hashtags
-- Max 1300 characters
+Instructions:
+- Explain what this research does and why it matters
+- Define key terms (e.g. VolovNet, LoRA, retrieval augmentation)
+- Include diagrams or flow explanation if relevant (describe it textually)
+- Link to the paper and tag the authors (if known)
+- End with a question or next-step insight
+- Keep <2000 characters, avoid markdown
+- Emojis & hashtags welcomed
 """
+
         else:
             return f"""
-Write a brief, well-structured LinkedIn post:
+Write a crisp LinkedIn post:
 
 TITLE: {item['title']}
-CONTENT: {item['content'][:1800]}
+BODY: {item['content'][:1800]}
 
-- Include intro, value points, and CTA
-- Use emojis and {max_hashtags} hashtags
-- Max 1300 characters
+- Open with a hook (question, story, emoji)
+- Break down 2–3 main ideas
+- Add 15 relevant hashtags
+- End with an invite for feedback or discussion
+- No markdown (*, **)
 """
