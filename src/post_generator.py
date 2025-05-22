@@ -53,13 +53,15 @@ class PostGenerator:
         for item in content_items:
             post = self._generate_post(item)
             if post:
-                # Generate image for the post
-                image_path = self.image_generator.generate_image_for_post(
+                # Generate image for the post and clean content
+                image_path, cleaned_content = self.image_generator.generate_image_for_post(
                     post['content'], 
                     item['title'],
                     self._determine_category(item)
                 )
                 
+                # Update post with cleaned content and image path
+                post['content'] = cleaned_content
                 if image_path:
                     post['image_path'] = image_path
                 
@@ -189,8 +191,8 @@ Instructions:
 - Highlight practical applications or pain points it addresses
 - {'Describe any diagram or image insight in text.' if has_images else ''}
 - Add emojis, hashtags, and link to {mention_avi} and {mention_akshay} using inline mentions
-- Max 2000 characters, avoid markdown (*, **)
-- Include a prompt for an image that would complement this post (e.g., "Image: A neural network visualization with nodes and connections")"""
+- Max 3000 characters, avoid markdown (*, **)
+- At the end of your post, on a new line, add "Image: [brief description for image generation]" - this will be removed from the final post"""
 
             elif 'wtf in tech' in source or 'bhavishya' in source:
                 return f"""
@@ -207,7 +209,7 @@ Instructions:
 - Add emojis and 5+ hashtags
 - End with: "Credits to {mention_bhavishya} for curating this 👏"
 - Avoid markdown styling, make it LinkedIn-ready
-- Include a prompt for an image that would complement this post (e.g., "Image: A data visualization showing technology adoption trends")"""
+- At the end of your post, on a new line, add "Image: [brief description for image generation]" - this will be removed from the final post"""
 
         elif item['type'] == 'research':
             authors = ', '.join(item.get('authors', [])[:3]) + (' et al.' if len(item.get('authors', [])) > 3 else '')
@@ -230,7 +232,7 @@ Instructions:
 - End with a question or next-step insight
 - Keep <3000 characters, avoid markdown
 - Emojis & hashtags welcomed
-- Include a prompt for an image that would complement this post (e.g., "Image: A diagram showing the architecture of the proposed model")"""
+- At the end of your post, on a new line, add "Image: A diagram showing the architecture of the proposed model" - this will be removed from the final post"""
 
             if len(item['content']) < 500:
                 prompt += "\nNote: The summary is short. Enrich it by expanding on known methods, use-cases, or simplified pseudocode."
@@ -249,7 +251,7 @@ BODY: {item['content'][:1800]}
 - Add 15 relevant hashtags
 - End with an invite for feedback or discussion
 - No markdown (*, **)
-- Include a prompt for an image that would complement this post (e.g., "Image: A visual representation of the key concept")"""
+- At the end of your post, on a new line, add "Image: [brief description for image generation]" - this will be removed from the final post"""
 
     def convert_latex_to_mathjax(self, text):
         text = re.sub(r'\$\$(.*?)\$\$', r'\\[\1\\]', text, flags=re.DOTALL)
