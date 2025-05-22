@@ -47,7 +47,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           # Install additional dependencies for image generation
-          pip install pillow requests
+          pip install pillow requests numpy matplotlib sympy
 
       - name: Create asset directories
         run: |
@@ -56,7 +56,12 @@ jobs:
           mkdir -p assets/stock_images/data_science
           mkdir -p assets/stock_images/ai
           mkdir -p assets/stock_images/machine_learning
+          mkdir -p assets/stock_images/nlp
+          mkdir -p assets/stock_images/mlops
           mkdir -p assets/generated_images
+          mkdir -p posts
+          mkdir -p images
+          mkdir -p analytics
 
       - name: Create placeholder stock images
         run: |
@@ -91,7 +96,9 @@ jobs:
               "business": ["Business", "Meeting", "Strategy", "Marketing"],
               "data_science": ["Data", "Analytics", "Statistics", "Visualization"],
               "ai": ["AI", "Artificial Intelligence", "Machine Learning", "Neural Network"],
-              "machine_learning": ["ML", "Deep Learning", "Algorithm", "Training Model"]
+              "machine_learning": ["ML", "Deep Learning", "Algorithm", "Training Model"],
+              "nlp": ["NLP", "Text Analysis", "Language Models", "Transformers"],
+              "mlops": ["MLOps", "Deployment", "Monitoring", "CI/CD"]
           }
 
           for category, topics in categories.items():
@@ -109,8 +116,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-      - name: Generate posts from research + email
-        run: python src/main.py
+      - name: Generate posts from research + email + random topics
+        run: python src/main.py --random-topics --num-posts 3
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_ENDPOINT: ${{ secrets.GROQ_ENDPOINT }}
@@ -128,13 +135,13 @@ jobs:
       - name: Get user information
         id: user_info
         run: |
-          # Get the repository owner's username and email
+          # Get the repository owner's username
           REPO_OWNER=$(echo $GITHUB_REPOSITORY | cut -d '/' -f 1)
           echo "REPO_OWNER=$REPO_OWNER" >> $GITHUB_ENV
           
-          # Try to get the user's email from GitHub API
+          # Get the user's email from GitHub API or use a fallback
           USER_EMAIL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/users/$REPO_OWNER | jq -r '.email // "action@github.com"')
+            https://api.github.com/users/$REPO_OWNER | jq -r '.email // ""')
           
           # If email is null or empty, use a fallback with the username
           if [ "$USER_EMAIL" = "null" ] || [ -z "$USER_EMAIL" ]; then
@@ -150,20 +157,20 @@ jobs:
           git config --global user.email "${{ env.USER_EMAIL }}"
           git config --global user.name "${{ env.USER_NAME }}"
           
-          # Create directories if they don't exist
-          mkdir -p posts images
-          
           # Add all relevant files
-          git add posts/ images/ assets/
+          git add posts/ images/ assets/ analytics/
           
           # Check if there are changes to commit
           if ! git diff --quiet && ! git diff --staged --quiet; then
             # Commit with a descriptive message
             git commit -m "Add LinkedIn posts for $(date +'%Y-%m-%d')"
             
-            # Push to the default branch (usually main or master)
-            git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:$(git rev-parse --abbrev-ref HEAD)
-            echo "Successfully committed and pushed changes"
+            # Get the default branch name
+            DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)
+            
+            # Push to the default branch
+            git push origin HEAD:$DEFAULT_BRANCH
+            echo "Successfully committed and pushed changes to $DEFAULT_BRANCH branch"
           else
             echo "No changes to commit"
           fi
