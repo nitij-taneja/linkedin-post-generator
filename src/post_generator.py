@@ -47,9 +47,6 @@ class PostGenerator:
             logger.error(f"Failed to load config: {e}")
             return {}
 
-    # (rest of your code remains unchanged)
-
-
     def generate_posts(self, email_data, research_data, max_posts=3, emails_only=False):
         posts = []
         content_items = self._prepare_content(email_data, research_data, emails_only)
@@ -57,20 +54,16 @@ class PostGenerator:
         for item in content_items:
             post = self._generate_post(item)
             if post:
-                # Generate image for the post and clean content
                 image_path, cleaned_content = self.image_generator.generate_image_for_post(
-                    post[\'content\'], 
-                    item[\'title\'],
+                    post['content'], 
+                    item['title'],
                     self._determine_category(item),
-                    item.get(\'has_equations\', False),
-                    item.get(\'has_architecture\', False)
+                    item.get('has_equations', False),
+                    item.get('has_architecture', False)
                 )
-                
-                # Update post with cleaned content and image path
-                post[\'content\'] = cleaned_content
+                post['content'] = cleaned_content
                 if image_path:
-                    post[\'image_path\'] = image_path
-                
+                    post['image_path'] = image_path
                 posts.append(post)
             if len(posts) >= max_posts:
                 break
@@ -78,72 +71,65 @@ class PostGenerator:
         return posts
 
     def generate_random_posts(self, topics):
-        """Generate posts based on randomly generated technical topics."""
         posts = []
         for topic in topics:
             post = self._generate_post(topic, is_random_topic=True)
             if post:
-                # Generate image for the post and clean content
                 image_path, cleaned_content = self.image_generator.generate_image_for_post(
-                    post[\'content\'], 
-                    topic[\'title\'],
-                    topic.get(\'category\', \'technology\'),
-                    topic.get(\'has_equations\', False),
-                    topic.get(\'has_architecture\', False)
+                    post['content'], 
+                    topic['title'],
+                    topic.get('category', 'technology'),
+                    topic.get('has_equations', False),
+                    topic.get('has_architecture', False)
                 )
-                
-                # Update post with cleaned content and image path
-                post[\'content\'] = cleaned_content
+                post['content'] = cleaned_content
                 if image_path:
-                    post[\'image_path\'] = image_path
-                
+                    post['image_path'] = image_path
                 posts.append(post)
         logger.info(f"Generated {len(posts)} LinkedIn posts from random topics")
         return posts
 
     def _determine_category(self, item):
-        """Determine the category for image generation based on content"""
-        title = item.get(\'title\', \'\').lower()
-        content = item.get(\'content\', \'\').lower()
-        
-        if any(term in title or term in content for term in [\'nlp\', \'language model\', \'transformer\']):
-            return \'nlp\'
-        elif any(term in title or term in content for term in [\'mlops\', \'deployment\', \'monitoring\']):
-            return \'mlops\'
-        elif any(term in title or term in content for term in [\'machine learning\', \'ml\', \'neural network\', \'deep learning\']):
-            return \'machine_learning\'
-        elif any(term in title or term in content for term in [\'ai\', \'artificial intelligence\']):
-            return \'ai\'
-        elif any(term in title or term in content for term in [\'data science\', \'data analysis\', \'statistics\']):
-            return \'data_science\'
-        elif any(term in title or term in content for term in [\'business\', \'strategy\', \'management\']):
-            return \'business\'
+        title = item.get('title', '').lower()
+        content = item.get('content', '').lower()
+        if any(term in title or term in content for term in ['nlp', 'language model', 'transformer']):
+            return 'nlp'
+        elif any(term in title or term in content for term in ['mlops', 'deployment', 'monitoring']):
+            return 'mlops'
+        elif any(term in title or term in content for term in ['machine learning', 'ml', 'neural network', 'deep learning']):
+            return 'machine_learning'
+        elif any(term in title or term in content for term in ['ai', 'artificial intelligence']):
+            return 'ai'
+        elif any(term in title or term in content for term in ['data science', 'data analysis', 'statistics']):
+            return 'data_science'
+        elif any(term in title or term in content for term in ['business', 'strategy', 'management']):
+            return 'business'
         else:
-            return \'technology\'
+            return 'technology'
 
     def _prepare_content(self, email_data, research_data, emails_only=False):
         content_items = []
         for email in email_data:
             content_items.append({
-                \'type\': \'email\',
-                \'title\': email.get(\'subject\', \'\'),
-                \'content\': email.get(\'body\', \'\'),
-                \'source\': email.get(\'from\', \'\'),
-                \'date\': email.get(\'date\', \'\')
+                'type': 'email',
+                'title': email.get('subject', ''),
+                'content': email.get('body', ''),
+                'source': email.get('from', ''),
+                'date': email.get('date', '')
             })
         if not emails_only:
             for source, items in research_data.items():
                 for item in items:
                     content_items.append({
-                        \'type\': \'research\',
-                        \'title\': item.get(\'title\', \'\'),
-                        \'content\': item.get(\'summary\', \'\'),
-                        \'authors\': item.get(\'authors\', []),
-                        \'link\': item.get(\'link\', \'\'),
-                        \'source\': source,
-                        \'date\': item.get(\'published\', \'\'),
-                        \'has_equations\': True, # Assume research might have equations
-                        \'has_architecture\': True # Assume research might have architecture
+                        'type': 'research',
+                        'title': item.get('title', ''),
+                        'content': item.get('summary', ''),
+                        'authors': item.get('authors', []),
+                        'link': item.get('link', ''),
+                        'source': source,
+                        'date': item.get('published', ''),
+                        'has_equations': True,
+                        'has_architecture': True
                     })
         return content_items
 
@@ -156,44 +142,39 @@ class PostGenerator:
 
         try:
             headers = {
-                \'Authorization\': f\'Bearer {self.api_key}\',
-                \'Content-Type\': \'application/json\'
+                'Authorization': f'Bearer {self.api_key}',
+                'Content-Type': 'application/json'
             }
 
             data = {
-                \'model\': \'llama3-70b-8192\',
-                \'messages\': [
+                'model': 'llama3-70b-8192',
+                'messages': [
                     {
-                        \'role\': \'system\',
-                        \'content
-ées
+                        'role': 'system',
+                        'content': 'You are a helpful assistant.'
                     },
                     {
-                        \'role\': \'user\',
-                        \'content\': prompt
+                        'role': 'user',
+                        'content': prompt
                     }
                 ],
-                \'temperature\': 0.7,
-                \'max_tokens\': 1500 # Increased token limit for more detail
+                'temperature': 0.7,
+                'max_tokens': 1500
             }
 
             response = requests.post(self.api_endpoint, headers=headers, json=data, timeout=180)
             if response.status_code == 200:
                 result = response.json()
-                post_content = result[\'choices\'][0][\'message\'][\'content\']
-                
-                # Basic check for successful generation (not just an error message)
+                post_content = result['choices'][0]['message']['content']
                 if len(post_content) < 100 or "error" in post_content.lower():
                     logger.warning(f"Generated post seems too short or contains error: {post_content[:100]}...")
-                    # Optionally, retry or return None
                     return None
-                    
                 return {
-                    \'content\': post_content,
-                    \'source_type\': content_item.get(\'type\', \'random_topic\'),
-                    \'source_title\': content_item[\'title\'],
-                    \'source_link\': content_item.get(\'link\', \'\'),
-                    \'generated_at\': datetime.now().isoformat()
+                    'content': post_content,
+                    'source_type': content_item.get('type', 'random_topic'),
+                    'source_title': content_item['title'],
+                    'source_link': content_item.get('link', ''),
+                    'generated_at': datetime.now().isoformat()
                 }
             else:
                 logger.error(f"Groq API error: {response.status_code} - {response.text}")
@@ -203,8 +184,9 @@ class PostGenerator:
             return None
 
     def _contains_image_references(self, content):
-        return bool(re.search(r\'<img|!\[.*?\]\(.*?\)\', content))
+        return bool(re.search(r'<img|!\[.*?\]\(.*?\)', content))
 
+   
     def _create_prompt(self, item, is_random_topic=False):
         include_emojis = self.post_preferences.get(\'include_emojis\', True)
         include_hashtags = self.post_preferences.get(\'include_hashtags\', True)
@@ -342,8 +324,7 @@ class PostGenerator:
             - On a new line at the very end, add an "Image: [General relevant technical illustration]" instruction.
             """
 
-    def convert_latex_to_mathjax(self, text):
-        # Basic conversion, might need refinement
-        text = re.sub(r\'\$\$(.*?)\$\$\', r\'\\[\1\\]\', text, flags=re.DOTALL)
-        text = re.sub(r\'\$(.*?)\$\', r\'\\(\1\\)\', text, flags=re.DOTALL)
+     def convert_latex_to_mathjax(self, text):
+        text = re.sub(r'\$\$(.*?)\$\$', r'\\[\1\\]', text, flags=re.DOTALL)
+        text = re.sub(r'\$(.*?)\$', r'\\(\1\\)', text, flags=re.DOTALL)
         return text
