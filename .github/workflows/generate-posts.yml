@@ -69,8 +69,17 @@ jobs:
           python - <<EOF
           from PIL import Image, ImageDraw, ImageFont
           import os
+          import re
+
+          def sanitize_filename(filename):
+              # Replace slashes and other unsafe characters with underscores
+              return re.sub(r'[\\/*?:"<>|]', '_', filename)
 
           def create_placeholder(filename, text, bg_color=(240, 240, 240), text_color=(60, 60, 60)):
+              # Ensure directory exists
+              directory = os.path.dirname(filename)
+              os.makedirs(directory, exist_ok=True)
+              
               img = Image.new('RGB', (800, 600), color=bg_color)
               draw = ImageDraw.Draw(img)
               
@@ -98,13 +107,18 @@ jobs:
               "ai": ["AI", "Artificial Intelligence", "Machine Learning", "Neural Network"],
               "machine_learning": ["ML", "Deep Learning", "Algorithm", "Training Model"],
               "nlp": ["NLP", "Text Analysis", "Language Models", "Transformers"],
-              "mlops": ["MLOps", "Deployment", "Monitoring", "CI/CD"]
+              "mlops": ["MLOps", "Deployment", "Monitoring", "CI_CD"]  # Fixed CI/CD to CI_CD
           }
 
           for category, topics in categories.items():
               directory = f"assets/stock_images/{category}"
+              os.makedirs(directory, exist_ok=True)
+              
               for i, topic in enumerate(topics):
-                  filename = f"{directory}/{topic.lower().replace(' ', '_')}.jpg"
+                  # Sanitize the topic name for filename
+                  safe_topic = sanitize_filename(topic.lower().replace(' ', '_'))
+                  filename = f"{directory}/{safe_topic}.jpg"
+                  
                   create_placeholder(filename, f"{topic}", 
                                     bg_color=(240, 245, 250) if i % 2 == 0 else (245, 240, 250),
                                     text_color=(30, 90, 150) if i % 2 == 0 else (90, 30, 150))
