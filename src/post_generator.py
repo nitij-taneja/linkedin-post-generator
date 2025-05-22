@@ -188,9 +188,9 @@ class PostGenerator:
 
    
     def _create_prompt(self, item, is_random_topic=False):
-        include_emojis = self.post_preferences.get(\'include_emojis\', True)
-        include_hashtags = self.post_preferences.get(\'include_hashtags\', True)
-        max_hashtags = self.post_preferences.get(\'max_hashtags\', 10)
+        include_emojis = self.post_preferences.get('include_emojis', True)
+        include_hashtags = self.post_preferences.get('include_hashtags', True)
+        max_hashtags = self.post_preferences.get('max_hashtags', 10)
 
         mention_avi = "Avi Chawla (https://www.linkedin.com/in/avi-chawla/)"
         mention_akshay = "Akshay Pachaar (https://www.linkedin.com/in/akshay-pachaar/)"
