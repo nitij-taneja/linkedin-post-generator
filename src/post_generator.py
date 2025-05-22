@@ -35,7 +35,6 @@ class PostGenerator:
         if not self.api_key:
             logger.warning("GROQ_API_KEY environment variable not set")
             
-        # Initialize image generator
         from src.image_generator import ImageGenerator
         self.image_generator = ImageGenerator(config_path)
 
@@ -186,7 +185,6 @@ class PostGenerator:
     def _contains_image_references(self, content):
         return bool(re.search(r'<img|!\[.*?\]\(.*?\)', content))
 
-   
     def _create_prompt(self, item, is_random_topic=False):
         include_emojis = self.post_preferences.get('include_emojis', True)
         include_hashtags = self.post_preferences.get('include_hashtags', True)
@@ -196,135 +194,106 @@ class PostGenerator:
         mention_akshay = "Akshay Pachaar (https://www.linkedin.com/in/akshay-pachaar/)"
         mention_bhavishya = "Bhavishya Pandit (https://www.linkedin.com/in/bhavishyapandit/)"
 
-        system_prompt = (
-            "You are a LinkedIn content strategist specializing in AI, Machine Learning, Data Science, NLP, and MLOps. "
-            "You create highly engaging, technically accurate, and insightful posts for a knowledgeable audience. "
-            "Your posts often include mathematical equations (using LaTeX format like $...$ or $$...$$), flowcharts, architecture diagrams, and comparisons with other techniques. "
-            "You explain *how* things work, not just summarize. Use emojis and relevant hashtags. Avoid generic intros and markdown styling (*, **)."
-        )
-
         if is_random_topic:
             topic = item
-            prompt = f"""
+            return f"""
             Create a detailed and insightful LinkedIn post about the following technical topic:
 
-            TOPIC: {topic[\'title\']}
-            CATEGORY: {topic[\'category\']}
-            DESCRIPTION: {topic[\'content\']}
-            TECHNICAL LEVEL: {topic[\'technical_level\']}
+            TOPIC: {topic['title']}
+            CATEGORY: {topic['category']}
+            DESCRIPTION: {topic['content']}
+            TECHNICAL LEVEL: {topic['technical_level']}
 
             Instructions:
             - Explain the core concepts clearly and concisely.
-            - If the topic involves mathematics ({topic[\'has_equations\']}), include relevant equations in LaTeX format (e.g., $E=mc^2$, $$L = \sum (y_i - \hat{y}_i)^2$$).
-            - If the topic involves architecture or process ({topic[\'has_architecture\']}), describe it in detail, suitable for generating a diagram or flowchart.
-            - Provide practical examples, analogies, or comparisons to make it relatable.
-            - Discuss the significance, applications, or challenges related to the topic.
-            - Ensure technical accuracy and depth suitable for the specified level.
-            - Include {max_hashtags} relevant hashtags.
-            - End with an engaging question or call to action.
-            - Keep the post under 3000 characters.
-            - On a new line at the very end, add an "Image: [Detailed description for image/diagram generation based on the content, e.g., \'Flowchart of the Q-learning algorithm\', \'Architecture diagram of a Transformer model showing self-attention\']" instruction.
+            - If the topic involves mathematics ({topic['has_equations']}), include relevant equations in LaTeX format.
+            - If the topic involves architecture or process ({topic['has_architecture']}), describe it in detail for a diagram.
+            - Add examples, analogies, comparisons.
+            - End with a question or CTA.
+            - Include {max_hashtags} hashtags.
+            - On a new line at the very end, add an "Image: [description]" instruction.
             """
-            return prompt
 
-        elif item[\'type\'] == \'email\':
-            source = item.get(\'source\', \'\').lower()
-            content_sample = item[\'content\'][:2500] # Slightly increased sample size
-            title = item[\'title\']
-            has_images = self._contains_image_references(item[\'content\'])
+        if item['type'] == 'email':
+            source = item.get('source', '').lower()
+            content_sample = item['content'][:2500]
+            title = item['title']
 
-            if \'avi\' in source and \'dailydoseofds\' in source:
+            if 'avi' in source and 'dailydoseofds' in source:
                 return f"""
-                Write a concise but technically insightful LinkedIn post based on this newsletter excerpt from {mention_avi} and {mention_akshay}.
+                Write a concise LinkedIn post from {mention_avi} and {mention_akshay}.
 
                 TITLE: {title}
                 CONTENT SNIPPET: {content_sample}
 
                 Instructions:
-                - Focus on 1-2 key technical takeaways. Explain the \'how\' and \'why\'.
-                - If equations or algorithms are mentioned, include them in LaTeX format.
-                - If diagrams are present, describe them for image generation.
-                - Add practical implications or compare with other methods.
-                - Include emojis, {max_hashtags} hashtags, and link to {mention_avi} and {mention_akshay}.
-                - Max 3000 characters, avoid markdown (*, **).
-                - On a new line at the very end, add an "Image: [Description based on content/diagrams]" instruction.
+                - Focus on 1-2 technical takeaways.
+                - Use LaTeX for math if needed.
+                - Describe diagrams.
+                - Include emojis, {max_hashtags} hashtags.
+                - Link {mention_avi} and {mention_akshay}.
+                - End with: "Image: [description]"
                 """
 
-            elif \'wtf in tech\' in source or \'bhavishya\' in source:
+            elif 'wtf in tech' in source or 'bhavishya' in source:
                 return f"""
-                Draft an educational and snappy post based on this newsletter by {mention_bhavishya}.
+                Draft a LinkedIn post based on {mention_bhavishya}'s newsletter.
 
                 TITLE: {title}
                 EXCERPT: {content_sample}
 
                 Instructions:
-                - Pick 1-2 key questions/solutions. Explain the underlying technical concepts.
-                - Include a mini-lesson or definition for one key term or method, potentially with a simple equation (LaTeX).
-                - If images/diagrams exist, describe them for image generation.
+                - Explain 1-2 concepts clearly.
+                - Add a mini-lesson or equation.
+                - Include emojis, {max_hashtags} hashtags.
+                - End: "Credits to {mention_bhavishya} 👏"
+                - "Image: [description]"
+                """
+
+            else:
+                return f"""
+                Write a LinkedIn post from this email.
+
+                TITLE: {item['title']}
+                BODY: {item['content'][:2000]}
+
+                - Explain 1-2 technical ideas.
                 - Add emojis and {max_hashtags} hashtags.
-                - End with: "Credits to {mention_bhavishya} for curating this 👏"
-                - Avoid markdown styling, make it LinkedIn-ready.
-                - On a new line at the very end, add an "Image: [Description based on content/diagrams]" instruction.
-                """
-            else: # Generic email
-                 return f"""
-                Write a crisp LinkedIn post based on this email content:
-
-                TITLE: {item[\'title\']}
-                BODY: {item[\'content\'][:2000]}
-
-                Instructions:
-                - Extract 1-2 interesting technical points.
-                - Explain the concepts clearly.
-                - Add {max_hashtags} relevant hashtags and emojis.
-                - End with an invite for feedback or discussion.
-                - No markdown (*, **).
-                - On a new line at the very end, add an "Image: [General relevant technical illustration]" instruction.
+                - End with: "Image: [technical illustration]"
                 """
 
-        elif item[\'type\'] == \'research\':
-            authors = \', \'.join(item.get(\'authors\', [])[:3]) + (\' et al.\' if len(item.get(\'authors\', [])) > 3 else \'\')
-            summary = item[\'content\'][:2500]
-            prompt = f"""
-            Create a highly engaging and technically detailed LinkedIn post summarizing this research paper for an AI/ML audience.
+        elif item['type'] == 'research':
+            authors = ', '.join(item.get('authors', [])[:3])
+            if len(item.get('authors', [])) > 3:
+                authors += ' et al.'
+            summary = item['content'][:2500]
+            return f"""
+            Create a technical LinkedIn post about this paper.
 
-            TITLE: {item[\'title\']}
+            TITLE: {item['title']}
             SUMMARY: {summary}
             AUTHORS: {authors}
-            LINK: {item.get(\'link\', \'\')}
+            LINK: {item.get('link', '')}
 
-            Instructions:
-            - Explain the core problem, the proposed solution, and key results.
-            - Focus on the technical novelty: What specific algorithms, architectures, or mathematical concepts are introduced or improved?
-            - Include relevant mathematical equations in LaTeX format (e.g., loss functions, update rules).
-            - Describe the model architecture or experimental setup in detail, suitable for generating a diagram/flowchart.
-            - Compare the approach to existing methods if possible.
-            - Discuss the significance and potential impact of the research.
-            - Define key terms clearly (e.g., VolovNet, LoRA, retrieval augmentation).
-            - Link to the paper and tag authors if possible.
-            - End with a thought-provoking question or future outlook.
-            - Keep <3000 characters, avoid markdown.
-            - Include emojis & {max_hashtags} relevant hashtags.
-            - On a new line at the very end, add an "Image: [Detailed description of the model architecture, key equation visualization, or experimental setup flowchart]" instruction.
-            """
-            return prompt
-
-        else: # Fallback for unknown types
-            return f"""
-            Write a crisp LinkedIn post:
-
-            TITLE: {item[\'title\']}
-            BODY: {item[\'content\'][:1800]}
-
-            - Open with a hook (question, story, emoji).
-            - Break down 1-2 main ideas.
-            - Add {max_hashtags} relevant hashtags.
-            - End with an invite for feedback or discussion.
-            - No markdown (*, **).
-            - On a new line at the very end, add an "Image: [General relevant technical illustration]" instruction.
+            - Explain problem, solution, results.
+            - Use LaTeX math.
+            - Describe architecture for diagram.
+            - Include emojis, {max_hashtags} hashtags.
+            - "Image: [detailed diagram]"
             """
 
-     def convert_latex_to_mathjax(self, text):
+        return f"""
+        Write a crisp LinkedIn post.
+
+        TITLE: {item['title']}
+        BODY: {item['content'][:1800]}
+
+        - Hook, idea, insight.
+        - Emojis and {max_hashtags} hashtags.
+        - End: "Image: [technical illustration]"
+        """
+
+    def convert_latex_to_mathjax(self, text):
         text = re.sub(r'\$\$(.*?)\$\$', r'\\[\1\\]', text, flags=re.DOTALL)
         text = re.sub(r'\$(.*?)\$', r'\\(\1\\)', text, flags=re.DOTALL)
         return text
