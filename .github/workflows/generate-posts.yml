@@ -56,27 +56,50 @@ jobs:
           mkdir -p assets/stock_images/machine_learning
           mkdir -p assets/generated_images
 
-      - name: Download sample stock images
+      - name: Create placeholder stock images
         run: |
-          # Technology images
-          wget https://source.unsplash.com/random/800x600/?technology -O assets/stock_images/technology/tech1.jpg
-          wget https://source.unsplash.com/random/800x600/?code -O assets/stock_images/technology/tech2.jpg
-          
-          # Business images
-          wget https://source.unsplash.com/random/800x600/?business -O assets/stock_images/business/business1.jpg
-          wget https://source.unsplash.com/random/800x600/?meeting -O assets/stock_images/business/business2.jpg
-          
-          # Data Science images
-          wget https://source.unsplash.com/random/800x600/?data -O assets/stock_images/data_science/data1.jpg
-          wget https://source.unsplash.com/random/800x600/?analytics -O assets/stock_images/data_science/data2.jpg
-          
-          # AI images
-          wget https://source.unsplash.com/random/800x600/?artificial-intelligence -O assets/stock_images/ai/ai1.jpg
-          wget https://source.unsplash.com/random/800x600/?robot -O assets/stock_images/ai/ai2.jpg
-          
-          # Machine Learning images
-          wget https://source.unsplash.com/random/800x600/?machine-learning -O assets/stock_images/machine_learning/ml1.jpg
-          wget https://source.unsplash.com/random/800x600/?neural-network -O assets/stock_images/machine_learning/ml2.jpg
+          # Create placeholder images using Python instead of downloading from external services
+          python - <<EOF
+          from PIL import Image, ImageDraw, ImageFont
+          import os
+
+          def create_placeholder(filename, text, bg_color=(240, 240, 240), text_color=(60, 60, 60)):
+              img = Image.new('RGB', (800, 600), color=bg_color)
+              draw = ImageDraw.Draw(img)
+              
+              # Draw border
+              draw.rectangle([(20, 20), (780, 580)], outline=text_color, width=2)
+              
+              # Add text
+              try:
+                  font = ImageFont.truetype("DejaVuSans.ttf", 40)
+              except IOError:
+                  font = ImageFont.load_default()
+                  
+              # Center text
+              draw.text((400, 300), text, fill=text_color, font=font, anchor="mm")
+              
+              # Save image
+              img.save(filename)
+              print(f"Created {filename}")
+
+          # Create placeholder images for each category
+          categories = {
+              "technology": ["Tech", "Programming", "Software", "Hardware"],
+              "business": ["Business", "Meeting", "Strategy", "Marketing"],
+              "data_science": ["Data", "Analytics", "Statistics", "Visualization"],
+              "ai": ["AI", "Artificial Intelligence", "Machine Learning", "Neural Network"],
+              "machine_learning": ["ML", "Deep Learning", "Algorithm", "Training Model"]
+          }
+
+          for category, topics in categories.items():
+              directory = f"assets/stock_images/{category}"
+              for i, topic in enumerate(topics):
+                  filename = f"{directory}/{topic.lower().replace(' ', '_')}.jpg"
+                  create_placeholder(filename, f"{topic}", 
+                                    bg_color=(240, 245, 250) if i % 2 == 0 else (245, 240, 250),
+                                    text_color=(30, 90, 150) if i % 2 == 0 else (90, 30, 150))
+          EOF
 
       - name: Send startup message to Telegram
         run: python src/test_bot_message.py
