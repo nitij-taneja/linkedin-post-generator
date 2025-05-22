@@ -1,4 +1,4 @@
-name: Generate General LinkedIn Posts
+name: Generate LinkedIn Posts
 
 on:
   workflow_dispatch:  # Manual run
@@ -21,10 +21,62 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      - name: Setup Node.js for Mermaid
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Install Mermaid CLI
+        run: npm install -g @mermaid-js/mermaid-cli
+
+      - name: Setup Java for PlantUML (optional fallback)
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Download PlantUML (optional fallback)
+        run: |
+          mkdir -p tools
+          wget https://github.com/plantuml/plantuml/releases/download/v1.2023.10/plantuml-1.2023.10.jar -O tools/plantuml.jar
+
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          # Install additional dependencies for image generation
+          pip install pillow requests
+
+      - name: Create asset directories
+        run: |
+          mkdir -p assets/stock_images/technology
+          mkdir -p assets/stock_images/business
+          mkdir -p assets/stock_images/data_science
+          mkdir -p assets/stock_images/ai
+          mkdir -p assets/stock_images/machine_learning
+          mkdir -p assets/generated_images
+
+      - name: Download sample stock images
+        run: |
+          # Technology images
+          wget https://source.unsplash.com/random/800x600/?technology -O assets/stock_images/technology/tech1.jpg
+          wget https://source.unsplash.com/random/800x600/?code -O assets/stock_images/technology/tech2.jpg
+          
+          # Business images
+          wget https://source.unsplash.com/random/800x600/?business -O assets/stock_images/business/business1.jpg
+          wget https://source.unsplash.com/random/800x600/?meeting -O assets/stock_images/business/business2.jpg
+          
+          # Data Science images
+          wget https://source.unsplash.com/random/800x600/?data -O assets/stock_images/data_science/data1.jpg
+          wget https://source.unsplash.com/random/800x600/?analytics -O assets/stock_images/data_science/data2.jpg
+          
+          # AI images
+          wget https://source.unsplash.com/random/800x600/?artificial-intelligence -O assets/stock_images/ai/ai1.jpg
+          wget https://source.unsplash.com/random/800x600/?robot -O assets/stock_images/ai/ai2.jpg
+          
+          # Machine Learning images
+          wget https://source.unsplash.com/random/800x600/?machine-learning -O assets/stock_images/machine_learning/ml1.jpg
+          wget https://source.unsplash.com/random/800x600/?neural-network -O assets/stock_images/machine_learning/ml2.jpg
 
       - name: Send startup message to Telegram
         run: python src/test_bot_message.py
@@ -42,11 +94,16 @@ jobs:
           EMAIL_SERVER: ${{ secrets.EMAIL_SERVER }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Optional self-hosted Stable Diffusion API URL (if available)
+          SD_API_URL: ${{ secrets.SD_API_URL }}
+          # Optional Hugging Face API URL
+          HF_API_URL: ${{ secrets.HF_API_URL }}
 
       - name: Commit and push if there are changes
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
-          mkdir -p posts && git add posts/
+          mkdir -p posts images
+          git add posts/ images/ assets/
           git diff --quiet && git diff --staged --quiet || git commit -m "Add LinkedIn posts for $(date +'%Y-%m-%d')"
           git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:Main
