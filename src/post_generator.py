@@ -25,13 +25,13 @@ class PostGenerator:
     def __init__(self, config_path=None):
         self.config_path = config_path or os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            \'config\', \'sources.json\'
+            'config', 'sources.json'
         )
         self.config = self._load_config()
-        self.post_preferences = self.config.get(\'post_preferences\', {})
+        self.post_preferences = self.config.get('post_preferences', {})
 
-        self.api_key = os.environ.get(\'GROQ_API_KEY\')
-        self.api_endpoint = os.environ.get(\'GROQ_ENDPOINT\', \'https://api.groq.com/openai/v1/chat/completions\')
+        self.api_key = os.environ.get('GROQ_API_KEY')
+        self.api_endpoint = os.environ.get('GROQ_ENDPOINT', 'https://api.groq.com/openai/v1/chat/completions')
         if not self.api_key:
             logger.warning("GROQ_API_KEY environment variable not set")
             
@@ -41,11 +41,14 @@ class PostGenerator:
 
     def _load_config(self):
         try:
-            with open(self.config_path, \'r\') as f:
+            with open(self.config_path, 'r') as f:
                 return json.load(f)
         except Exception as e:
             logger.error(f"Failed to load config: {e}")
             return {}
+
+    # (rest of your code remains unchanged)
+
 
     def generate_posts(self, email_data, research_data, max_posts=3, emails_only=False):
         posts = []
