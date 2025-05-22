@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Post Generator Module for LinkedIn Post Generator
-Enhanced with advanced prompting, diversity in tone, LLM-augmented context, and hyperlink support.
+Enhanced with advanced prompting, diversity in tone, LLM-augmented context, hyperlink support,
+and free image generation capabilities.
 """
 
 import json
@@ -11,6 +12,7 @@ import requests
 from datetime import datetime
 import random
 import re
+import base64
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,6 +33,10 @@ class PostGenerator:
         self.api_endpoint = os.environ.get('GROQ_ENDPOINT', 'https://api.groq.com/openai/v1/chat/completions')
         if not self.api_key:
             logger.warning("GROQ_API_KEY environment variable not set")
+            
+        # Initialize image generator
+        from src.image_generator import ImageGenerator
+        self.image_generator = ImageGenerator(config_path)
 
     def _load_config(self):
         try:
@@ -47,11 +53,37 @@ class PostGenerator:
         for item in content_items:
             post = self._generate_post(item)
             if post:
+                # Generate image for the post
+                image_path = self.image_generator.generate_image_for_post(
+                    post['content'], 
+                    item['title'],
+                    self._determine_category(item)
+                )
+                
+                if image_path:
+                    post['image_path'] = image_path
+                
                 posts.append(post)
             if len(posts) >= max_posts:
                 break
         logger.info(f"Generated {len(posts)} LinkedIn posts")
         return posts
+
+    def _determine_category(self, item):
+        """Determine the category for image generation based on content"""
+        title = item.get('title', '').lower()
+        content = item.get('content', '').lower()
+        
+        if any(term in title or term in content for term in ['machine learning', 'ml', 'neural network', 'deep learning']):
+            return 'machine_learning'
+        elif any(term in title or term in content for term in ['ai', 'artificial intelligence']):
+            return 'ai'
+        elif any(term in title or term in content for term in ['data science', 'data analysis', 'statistics']):
+            return 'data_science'
+        elif any(term in title or term in content for term in ['business', 'strategy', 'management']):
+            return 'business'
+        else:
+            return 'technology'
 
     def _prepare_content(self, email_data, research_data, emails_only=False):
         content_items = []
@@ -157,7 +189,8 @@ Instructions:
 - Highlight practical applications or pain points it addresses
 - {'Describe any diagram or image insight in text.' if has_images else ''}
 - Add emojis, hashtags, and link to {mention_avi} and {mention_akshay} using inline mentions
-- Max 2000 characters, avoid markdown (*, **)"""
+- Max 2000 characters, avoid markdown (*, **)
+- Include a prompt for an image that would complement this post (e.g., "Image: A neural network visualization with nodes and connections")"""
 
             elif 'wtf in tech' in source or 'bhavishya' in source:
                 return f"""
@@ -173,7 +206,8 @@ Instructions:
 - {'Summarize any attached image or diagram as text if found.' if has_images else ''}
 - Add emojis and 5+ hashtags
 - End with: "Credits to {mention_bhavishya} for curating this 👏"
-- Avoid markdown styling, make it LinkedIn-ready"""
+- Avoid markdown styling, make it LinkedIn-ready
+- Include a prompt for an image that would complement this post (e.g., "Image: A data visualization showing technology adoption trends")"""
 
         elif item['type'] == 'research':
             authors = ', '.join(item.get('authors', [])[:3]) + (' et al.' if len(item.get('authors', [])) > 3 else '')
@@ -194,8 +228,9 @@ Instructions:
 - Include diagrams or flow explanation if relevant (describe it textually)
 - Link to the paper and tag the authors (if known)
 - End with a question or next-step insight
-- Keep <2000 characters, avoid markdown
-- Emojis & hashtags welcomed"""
+- Keep <3000 characters, avoid markdown
+- Emojis & hashtags welcomed
+- Include a prompt for an image that would complement this post (e.g., "Image: A diagram showing the architecture of the proposed model")"""
 
             if len(item['content']) < 500:
                 prompt += "\nNote: The summary is short. Enrich it by expanding on known methods, use-cases, or simplified pseudocode."
@@ -213,7 +248,8 @@ BODY: {item['content'][:1800]}
 - Break down 2–3 main ideas
 - Add 15 relevant hashtags
 - End with an invite for feedback or discussion
-- No markdown (*, **)"""
+- No markdown (*, **)
+- Include a prompt for an image that would complement this post (e.g., "Image: A visual representation of the key concept")"""
 
     def convert_latex_to_mathjax(self, text):
         text = re.sub(r'\$\$(.*?)\$\$', r'\\[\1\\]', text, flags=re.DOTALL)
