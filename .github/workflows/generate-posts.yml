@@ -3,6 +3,10 @@ name: Generate LinkedIn Posts
 on:
   workflow_dispatch:  # Manual run
   schedule:
+  - cron: '0 10 * * *'
+    - cron: '0 15 * * *'
+    - cron: '0 19 * * *'
+    - cron: '0 21 * * *'
 
 jobs:
   generate-posts:
