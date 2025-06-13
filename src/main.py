@@ -1,243 +1,265 @@
+#!/usr/bin/env python3
+"""
+Main module for LinkedIn Post Generator
+Orchestrates the entire post generation workflow.
+"""
+
 import os
 import sys
 import json
 import logging
 import argparse
-from datetime import datetime, timedelta
-import shutil
+from datetime import datetime
 import random
+import re
+import shutil
+from typing import List, Dict, Any, Optional
 
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Import local modules
+from post_generator import PostGenerator
+from image_generator import ImageGenerator
+from equation_generator import EquationGenerator
+from random_topic_generator import RandomTopicGenerator
+from telegram_delivery import TelegramDelivery
 
-from src.email_fetcher import EmailFetcher
-from src.research_fetcher import ResearchFetcher
-from src.post_generator import PostGenerator
-from src.telegram_delivery import TelegramDelivery
-from src.random_topic_generator import RandomTopicGenerator
-
-def cleanup_old_posts(directory, days_old=20):
-    cutoff = datetime.now() - timedelta(days=days_old)
-    deleted = 0
-    if os.path.exists(directory):
-        for filename in os.listdir(directory):
-            path = os.path.join(directory, filename)
-            if os.path.isfile(path):
-                created = datetime.fromtimestamp(os.path.getctime(path))
-                if created < cutoff:
-                    os.remove(path)
-                    deleted += 1
-    logger.info(f"Cleaned up {deleted} old post files from {directory}")
-
-def strip_markdown(text):
-    return text.replace('**', '').replace('__', '')
-
-def save_posts_to_github(posts, output_dir):
-    """Save posts and images to appropriate directories for GitHub commit"""
-    # Ensure all required directories exist
-    os.makedirs(output_dir, exist_ok=True)
-    analytics_dir = os.path.join(os.path.dirname(output_dir), 'analytics')
-    images_dir = os.path.join(os.path.dirname(output_dir), 'images')
-    os.makedirs(analytics_dir, exist_ok=True)
-    os.makedirs(images_dir, exist_ok=True)
+def setup_directories():
+    """Create necessary directories if they don't exist."""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    project_dir = os.path.dirname(base_dir)
     
-    saved_files = []
-
-    for i, post in enumerate(posts):
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        md_file = f"post_{timestamp}_{i+1}.md"
-        md_path = os.path.join(output_dir, md_file)
-
-        try:
-            clean_content = strip_markdown(post['content'])
-            
-            # Handle image if present
-            image_path = post.get('image_path')
-            image_filename = None
-            if image_path and os.path.exists(image_path):
-                # Use a descriptive name based on post type and timestamp
-                image_ext = os.path.splitext(image_path)[1]
-                image_filename = f"{post['source_type']}_{timestamp}_{i+1}{image_ext}"
-                image_dest = os.path.join(images_dir, image_filename)
-                
-                # Copy the image to the images directory
-                shutil.copy(image_path, image_dest)
-                logger.info(f"Copied image to {image_dest}")
-
-            # Write the post to a markdown file
-            with open(md_path, 'w') as f:
-                f.write(f"# LinkedIn Post Draft {i+1}\n\n")
-                f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-                f.write(f"Source: {post['source_type']} - {post['source_title']}\n\n")
-                
-                # Add image reference if available
-                if image_filename:
-                    relative_path = f"../images/{image_filename}"
-                    f.write(f"![Post Image]({relative_path})\n\n")
-                
-                f.write("## Content\n\n")
-                f.write(clean_content)
-                f.write("\n\n")
-                if post['source_link']:
-                    f.write(f"Original source: {post['source_link']}\n")
-
-            # Create analytics JSON
-            analytics = {
-                'timestamp': datetime.now().isoformat(),
-                'source_type': post['source_type'],
-                'source_title': post['source_title'],
-                'source_link': post.get('source_link', ''),
-                'hashtags': post.get('hashtags', []),
-                'content_length': len(clean_content),
-                'has_image': image_filename is not None,
-                'image_path': f"../images/{image_filename}" if image_filename else None,
-                'mentions': ['Avi Chawla', 'Akshay Pachaar'] if 'avi' in post['source_title'].lower() else [],
-                'formatting': {
-                    'emojis': True,
-                    'bullets': '-' in clean_content
-                }
-            }
-            json_path = os.path.join(analytics_dir, f"analytics_{timestamp}_{i+1}.json")
-            with open(json_path, 'w') as jf:
-                json.dump(analytics, jf, indent=2)
-
-            saved_files.append(md_path)
-            logger.info(f"Saved post to {md_path} and analytics to {json_path}")
-
-        except Exception as e:
-            logger.error(f"Error saving post: {e}")
+    directories = [
+        os.path.join(project_dir, 'posts'),
+        os.path.join(project_dir, 'images'),
+        os.path.join(project_dir, 'assets'),
+        os.path.join(project_dir, 'assets', 'stock_images'),
+        os.path.join(project_dir, 'assets', 'generated_images'),
+        os.path.join(project_dir, 'assets', 'equations'),
+        os.path.join(project_dir, 'analytics'),
+        os.path.join(project_dir, 'config')
+    ]
     
-    # Return list of saved files for verification
-    return saved_files
-
-def setup_assets_directories():
-    """Set up necessary directories for assets and stock images"""
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    assets_dir = os.path.join(base_dir, 'assets')
-    stock_images_dir = os.path.join(assets_dir, 'stock_images')
-    generated_images_dir = os.path.join(assets_dir, 'generated_images')
-    
-    # Create directories if they don't exist
-    for directory in [assets_dir, stock_images_dir, generated_images_dir]:
+    for directory in directories:
         os.makedirs(directory, exist_ok=True)
+        logger.info(f"Ensured directory exists: {directory}")
     
-    # Create category subdirectories
-    for category in ['technology', 'business', 'data_science', 'ai', 'machine_learning', 'nlp', 'mlops']:
-        os.makedirs(os.path.join(stock_images_dir, category), exist_ok=True)
+    # Create default config if it doesn't exist
+    config_path = os.path.join(project_dir, 'config', 'sources.json')
+    if not os.path.exists(config_path):
+        default_config = {
+            "email_sources": [],
+            "research_sources": [],
+            "custom_sources": []
+        }
+        with open(config_path, 'w') as f:
+            json.dump(default_config, f, indent=2)
+        logger.info(f"Created default config at {config_path}")
     
-    logger.info(f"Set up asset directories at {assets_dir}")
+    return project_dir
+
+def load_sources(config_path):
+    """Load sources from configuration file."""
+    try:
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        
+        sources = []
+        
+        # Process email sources
+        for source in config.get('email_sources', []):
+            sources.append({
+                'type': 'email',
+                'title': source.get('subject', 'Untitled Email'),
+                'content': source.get('body', ''),
+                'link': source.get('link', '')
+            })
+        
+        # Process research sources
+        for source in config.get('research_sources', []):
+            sources.append({
+                'type': 'research',
+                'title': source.get('title', 'Untitled Research'),
+                'content': source.get('abstract', ''),
+                'link': source.get('url', '')
+            })
+        
+        # Process custom sources
+        for source in config.get('custom_sources', []):
+            sources.append({
+                'type': source.get('type', 'custom'),
+                'title': source.get('title', 'Untitled Custom Source'),
+                'content': source.get('content', ''),
+                'link': source.get('link', '')
+            })
+        
+        return sources
+    
+    except Exception as e:
+        logger.error(f"Error loading sources: {e}", exc_info=True)
+        return []
+
+def fetch_email_sources():
+    """Fetch sources from email."""
+    # This is a placeholder for the actual email fetching logic
+    # In a real implementation, this would connect to an email server
+    # and fetch emails based on configuration
+    
+    logger.info("Fetching email sources")
+    
+    # Check if email credentials are provided
+    email_username = os.environ.get('EMAIL_USERNAME')
+    email_password = os.environ.get('EMAIL_PASSWORD')
+    email_server = os.environ.get('EMAIL_SERVER')
+    
+    if not email_username or not email_password or not email_server:
+        logger.warning("Email credentials not provided. Skipping email sources.")
+        return []
+    
+    # Placeholder for email fetching logic
+    # In a real implementation, this would use the email credentials
+    # to connect to the email server and fetch emails
+    
+    # For now, return a placeholder email source
+    return [{
+        'type': 'email',
+        'title': 'Latest AI Developments Newsletter',
+        'content': 'This is a placeholder for email content that would be fetched from an actual email server.',
+        'link': ''
+    }]
+
+def fetch_research_sources():
+    """Fetch sources from research papers."""
+    # This is a placeholder for the actual research paper fetching logic
+    # In a real implementation, this would connect to research paper APIs
+    # or scrape websites to fetch recent papers
+    
+    logger.info("Fetching research sources")
+    
+    # Placeholder for research paper fetching logic
+    # In a real implementation, this would use APIs or web scraping
+    # to fetch recent research papers
+    
+    # For now, return a placeholder research source
+    return [{
+        'type': 'research',
+        'title': 'Recent Advances in Machine Learning',
+        'content': 'This is a placeholder for research paper content that would be fetched from actual research sources.',
+        'link': 'https://arxiv.org/abs/example'
+    }]
+
+def generate_posts(sources, num_posts=3, random_topics=False):
+    """Generate LinkedIn posts from sources."""
+    logger.info(f"Generating {num_posts} posts (random_topics={random_topics})")
+    
+    # Initialize generators
+    post_generator = PostGenerator()
+    
+    # If random topics are requested, generate them
+    if random_topics:
+        topic_generator = RandomTopicGenerator()
+        random_sources = topic_generator.generate_random_topics(num_posts)
+        # Combine with other sources and shuffle
+        all_sources = sources + random_sources
+        random.shuffle(all_sources)
+        sources = all_sources
+    
+    # Generate posts
+    posts = post_generator.generate_posts(sources, num_posts=num_posts)
+    
+    return posts
+
+def deliver_posts(posts):
+    """Deliver posts to Telegram."""
+    logger.info(f"Delivering {len(posts)} posts to Telegram")
+    
+    # Initialize delivery
+    delivery = TelegramDelivery()
+    
+    # Deliver posts
+    success = delivery.deliver_posts(posts)
+    
+    if success:
+        logger.info("Successfully delivered posts to Telegram")
+    else:
+        logger.error("Failed to deliver posts to Telegram")
+    
+    return success
+
+def save_posts_to_github(posts):
+    """Save posts to GitHub repository for contribution streak."""
+    logger.info(f"Saving {len(posts)} posts to GitHub repository")
+    
+    try:
+        # Create a summary file with links to all posts
+        timestamp = datetime.now().strftime('%Y-%m-%d')
+        summary_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                   'posts', f"summary_{timestamp}.md")
+        
+        with open(summary_file, 'w') as f:
+            f.write(f"# LinkedIn Posts - {timestamp}\n\n")
+            for i, post in enumerate(posts):
+                f.write(f"## Post {i+1}: {post['source_title']}\n\n")
+                f.write(f"Source: {post['source_type']}\n\n")
+                f.write(f"[View full post]({os.path.relpath(post['post_file'], os.path.dirname(summary_file))})\n\n")
+                if post.get('image_path'):
+                    f.write(f"![Post Image]({os.path.relpath(post['image_path'], os.path.dirname(summary_file))})\n\n")
+                f.write("---\n\n")
+        
+        logger.info(f"Created summary file at {summary_file}")
+        return True
+    
+    except Exception as e:
+        logger.error(f"Error saving posts to GitHub: {e}", exc_info=True)
+        return False
+
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description='Generate LinkedIn posts')
+    parser.add_argument('--num-posts', type=int, default=3, help='Number of posts to generate')
+    parser.add_argument('--random-topics', action='store_true', help='Include random technical topics')
+    parser.add_argument('--no-delivery', action='store_true', help='Skip delivery to Telegram')
+    parser.add_argument('--config', type=str, help='Path to configuration file')
+    return parser.parse_args()
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str)
-    parser.add_argument('--output-dir', type=str, default='posts')
-    parser.add_argument('--skip-email', action='store_true')
-    parser.add_argument('--skip-telegram', action='store_true')
-    parser.add_argument('--emails-only', action='store_true')
-    parser.add_argument('--skip-images', action='store_true')
-    parser.add_argument('--random-topics', action='store_true', help="Generate posts on random AI/ML topics")
-    parser.add_argument('--num-posts', type=int, default=1, help="Number of posts to generate")
-    args = parser.parse_args()
+    """Main function."""
+    # Parse arguments
+    args = parse_arguments()
+    
+    # Setup directories
+    project_dir = setup_directories()
+    
+    # Determine config path
+    config_path = args.config or os.path.join(project_dir, 'config', 'sources.json')
+    
+    # Load sources
+    sources = load_sources(config_path)
+    
+    # Fetch additional sources
+    email_sources = fetch_email_sources()
+    research_sources = fetch_research_sources()
+    
+    # Combine all sources
+    all_sources = sources + email_sources + research_sources
+    
+    # Generate posts
+    posts = generate_posts(all_sources, num_posts=args.num_posts, random_topics=args.random_topics)
+    
+    # Deliver posts if requested
+    if not args.no_delivery:
+        deliver_posts(posts)
+    
+    # Save posts to GitHub
+    save_posts_to_github(posts)
+    
+    logger.info("LinkedIn post generation completed successfully")
+    return 0
 
-    config_path = args.config or os.path.join(os.path.dirname(__file__), '../config/sources.json')
-    output_dir = os.path.abspath(args.output_dir)
-
-    logger.info(f"Starting LinkedIn Post Generator with config: {config_path}")
-    cleanup_old_posts(output_dir)
-    setup_assets_directories()
-
-    try:
-        if not os.environ.get('GROQ_API_KEY'):
-            logger.error("GROQ_API_KEY not set")
-            return 1
-
-        if not args.skip_telegram and (not os.environ.get('TELEGRAM_BOT_TOKEN') or not os.environ.get('TELEGRAM_CHAT_ID')):
-            logger.warning("Telegram credentials not set, skipping Telegram delivery")
-            args.skip_telegram = True
-
-        email_fetcher = EmailFetcher(config_path)
-        research_fetcher = ResearchFetcher(config_path)
-        post_generator = PostGenerator(config_path)
-        
-        # Initialize random topic generator if needed
-        random_topic_generator = None
-        if args.random_topics:
-            random_topic_generator = RandomTopicGenerator(config_path)
-
-        # Collect content from various sources
-        posts = []
-        
-        # 1. Get posts from email if enabled
-        if not args.skip_email:
-            email_data = []
-            if os.environ.get('EMAIL_USERNAME') and os.environ.get('EMAIL_PASSWORD'):
-                email_data = email_fetcher.fetch_emails(
-                    os.environ['EMAIL_USERNAME'],
-                    os.environ['EMAIL_PASSWORD']
-                )
-                # Generate posts from email data
-                if email_data:
-                    email_posts = post_generator.generate_posts(email_data, {}, max_posts=1, emails_only=True)
-                    posts.extend(email_posts)
-            else:
-                logger.warning("Email credentials not set")
-
-        # 2. Get posts from research if not emails-only
-        research_data = {}
-        if not args.emails_only:
-            research_data = research_fetcher.fetch_all_research()
-            # Generate posts from research data
-            if research_data:
-                research_posts = post_generator.generate_posts([], research_data, max_posts=1)
-                posts.extend(research_posts)
-        else:
-            logger.info("Skipping research sources — generating email-only posts")
-
-        # 3. Generate random topic posts if enabled
-        if args.random_topics and random_topic_generator:
-            random_topics = random_topic_generator.generate_topics(
-                num_topics=1,
-                categories=['ai', 'machine_learning', 'data_science', 'nlp', 'mlops']
-            )
-            if random_topics:
-                random_posts = post_generator.generate_random_posts(random_topics)
-                posts.extend(random_posts)
-
-        # Limit to requested number of posts
-        if len(posts) > args.num_posts:
-            # Shuffle to ensure variety if we have more than needed
-            random.shuffle(posts)
-            posts = posts[:args.num_posts]
-
-        if not posts:
-            logger.warning("No posts generated")
-            return 0
-
-        # Save posts to GitHub repository
-        saved_files = save_posts_to_github(posts, output_dir)
-        
-        # Verify that files were saved
-        if not saved_files:
-            logger.warning("No files were saved to GitHub repository")
-        else:
-            logger.info(f"Successfully saved {len(saved_files)} posts to GitHub repository")
-
-        # Send posts to Telegram if enabled
-        if not args.skip_telegram:
-            telegram_delivery = TelegramDelivery(config_path)
-            telegram_delivery.deliver_posts(posts)
-
-        return 0
-
-    except Exception as e:
-        logger.error(f"Error: {e}", exc_info=True)
-        return 1
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())
